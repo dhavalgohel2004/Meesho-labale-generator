@@ -27,3 +27,5 @@ _test_*.pdf
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
