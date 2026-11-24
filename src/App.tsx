@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Dropzone } from './components/Dropzone'
-import { LayoutToggle } from './components/LayoutToggle'
+import { InvoiceToggle } from './components/InvoiceToggle'
 import { Preview } from './components/Preview'
 import {
   combineLabels,
   downloadPdf,
-  type LayoutMode,
+  type InvoiceMode,
 } from './lib/combineLabels'
 import './App.css'
 
 export default function App() {
   const [file, setFile] = useState<File | null>(null)
   const [fileBytes, setFileBytes] = useState<Uint8Array | null>(null)
-  const [layout, setLayout] = useState<LayoutMode>('4-up')
+  const [invoiceMode, setInvoiceMode] = useState<InvoiceMode>('without')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultBytes, setResultBytes] = useState<Uint8Array | null>(null)
   const [inputPages, setInputPages] = useState(0)
   const [outputPages, setOutputPages] = useState(0)
-  const [labelsPerSheet, setLabelsPerSheet] = useState(4)
+  const [labelsPerSheet, setLabelsPerSheet] = useState(8)
 
-  const previewUrl = useMemo(() => {
+  const downloadUrl = useMemo(() => {
     if (!resultBytes) return null
     const copy = new Uint8Array(resultBytes)
     return URL.createObjectURL(new Blob([copy], { type: 'application/pdf' }))
@@ -28,9 +28,9 @@ export default function App() {
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl)
     }
-  }, [previewUrl])
+  }, [downloadUrl])
 
   const onFile = useCallback(async (next: File) => {
     setError(null)
@@ -56,7 +56,7 @@ export default function App() {
       setError(null)
       try {
         const result = await combineLabels(fileBytes, {
-          layout,
+          invoiceMode,
           cutGuides: true,
         })
         if (cancelled) return
@@ -79,12 +79,12 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [fileBytes, layout])
+  }, [fileBytes, invoiceMode])
 
   const onDownload = () => {
     if (!resultBytes) return
     const base = file?.name?.replace(/\.pdf$/i, '') || 'meesho-labels'
-    const suffix = layout === '4-up' ? '4up' : '2up'
+    const suffix = invoiceMode === 'without' ? 'no-invoice-8up' : 'with-invoice-4up'
     downloadPdf(resultBytes, `${base}-${suffix}-A4.pdf`)
   }
 
@@ -96,8 +96,8 @@ export default function App() {
         <p className="hero__eyebrow">Seller print tool</p>
         <h1 className="hero__brand">Meesho Label Generator</h1>
         <p className="hero__lead">
-          Upload your Sub_Order_Labels PDF. We place full pages (label + invoice,
-          nothing cropped) onto A4 sheets — 4 per page by default.
+          Upload your Sub_Order_Labels PDF. Default packs cropped shipping labels
+          (no invoice) — 8 per A4. Or keep full pages with invoice — 4 per A4.
         </p>
       </header>
 
@@ -105,9 +105,9 @@ export default function App() {
         <Dropzone onFile={onFile} disabled={busy} fileName={file?.name ?? null} />
 
         <div className="panel__controls">
-          <LayoutToggle
-            value={layout}
-            onChange={setLayout}
+          <InvoiceToggle
+            value={invoiceMode}
+            onChange={setInvoiceMode}
             disabled={busy || !fileBytes}
           />
 
@@ -137,7 +137,8 @@ export default function App() {
         )}
 
         <Preview
-          url={previewUrl}
+          pdfBytes={resultBytes}
+          downloadUrl={downloadUrl}
           outputPages={outputPages}
           inputPages={inputPages}
           labelsPerSheet={labelsPerSheet}
@@ -146,8 +147,9 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          Full Meesho pages only — no cropping. Empty cells stay blank when the
-          last sheet has fewer labels.
+          Without invoice crops the shipping label only and fits 8 on each A4.
+          With invoice keeps the full Meesho page and places 4 per sheet. Empty
+          cells stay blank.
         </p>
       </footer>
     </div>
